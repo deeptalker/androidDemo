@@ -3,18 +3,17 @@ name: Build AndroidDemo APK for Android 12 arm64
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: # 支持手动触发
+  workflow_dispatch:
 
 jobs:
   build-apk:
-    runs-on: ubuntu-latest # Android编译优先用Ubuntu（速度更快）
+    runs-on: ubuntu-latest
     
     steps:
-      # 步骤1：拉取代码
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 步骤2：配置JDK（Android编译需要JDK 17）
+      # 步骤2：配置JDK 17（匹配build.gradle的Java 17）
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -22,35 +21,35 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 步骤3：授予gradlew执行权限
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      # 步骤4：编译release版APK（适配Android 12 + arm64）
+      # 步骤4：编译release版APK（适配新AGP语法）
       - name: Build arm64-v8a APK for Android 12
         run: |
-          ./gradlew assembleRelease \
-            -PminSdkVersion=31 \
-            -PtargetSdkVersion=34 \
-            -PabiFilters=arm64-v8a \
-            --no-daemon # 避免后台进程占用资源
+          ./gradlew assembleRelease --no-daemon
+          # 打印所有APK文件，方便排查
+          echo "=== 生成的APK列表 ==="
+          find ./app/build/outputs/apk -name "*.apk" -print
 
-      # 步骤5：验证APK是否生成（避免假成功）
-      - name: Verify APK exists
+      # 步骤5：动态查找APK并验证架构
+      - name: Verify and locate APK
+        id: find_apk
         run: |
-          APK_PATH="./app/build/outputs/apk/release/app-arm64-v8a-release.apk"
-          if [ ! -f "$APK_PATH" ]; then
-            echo "Error: APK not generated at $APK_PATH"
+          APK_FILE=$(find ./app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            echo "Error: No APK found in release directory"
             exit 1
           fi
-          # 打印APK信息（验证架构和SDK版本）
-          echo "=== APK Info ==="
-          file $APK_PATH
+          echo "apk_path=$APK_FILE" >> $GITHUB_OUTPUT
+          echo "Success: Found APK at $APK_FILE"
+          # 验证APK是arm64架构
+          unzip -l $APK_FILE | grep "lib/arm64-v8a" || { echo "Error: APK not arm64-v8a"; exit 1; }
 
-      # 步骤6：上传APK产物（方便下载）
+      # 步骤6：上传APK产物
       - name: Upload Android 12 arm64 APK
         uses: actions/upload-artifact@v4
         with:
           name: androidDemo-Android12-arm64-APK
-          path: ./app/build/outputs/apk/release/app-arm64-v8a-release.apk
+          path: ${{ steps.find_apk.outputs.apk_path }}
           retention-days: 14
