@@ -1,0 +1,56 @@
+name: Build AndroidDemo APK for Android 12 arm64
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: # 支持手动触发
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest # Android编译优先用Ubuntu（速度更快）
+    
+    steps:
+      # 步骤1：拉取代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 步骤2：配置JDK（Android编译需要JDK 17）
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      # 步骤3：授予gradlew执行权限
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      # 步骤4：编译release版APK（适配Android 12 + arm64）
+      - name: Build arm64-v8a APK for Android 12
+        run: |
+          ./gradlew assembleRelease \
+            -PminSdkVersion=31 \
+            -PtargetSdkVersion=34 \
+            -PabiFilters=arm64-v8a \
+            --no-daemon # 避免后台进程占用资源
+
+      # 步骤5：验证APK是否生成（避免假成功）
+      - name: Verify APK exists
+        run: |
+          APK_PATH="./app/build/outputs/apk/release/app-arm64-v8a-release.apk"
+          if [ ! -f "$APK_PATH" ]; then
+            echo "Error: APK not generated at $APK_PATH"
+            exit 1
+          fi
+          # 打印APK信息（验证架构和SDK版本）
+          echo "=== APK Info ==="
+          file $APK_PATH
+
+      # 步骤6：上传APK产物（方便下载）
+      - name: Upload Android 12 arm64 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: androidDemo-Android12-arm64-APK
+          path: ./app/build/outputs/apk/release/app-arm64-v8a-release.apk
+          retention-days: 14
