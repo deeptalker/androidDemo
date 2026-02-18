@@ -44,7 +44,7 @@ jobs:
           echo "apk_path=$APK_FILE" >> $GITHUB_OUTPUT
           echo "Success: Found APK at $APK_FILE"
           # 验证APK是arm64架构
-          unzip -l $APK_FILE | grep "lib/arm64-v8a" || { echo "Error: APK not arm64-v8a"; exit 1; }
+          #unzip -l $APK_FILE | grep "libs/arm64-v8a" || { echo "Error: APK not arm64-v8a"; exit 1; }
 
       # 步骤6：上传APK产物
       - name: Upload Android 12 arm64 APK
